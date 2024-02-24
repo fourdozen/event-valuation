@@ -7,19 +7,39 @@ import numpy as np
 import pandas as pd
 
 class Feed():
-    def __init__(self, data):
+    def __init__(self, data, form: str, column_names: list):
         self.data = data
-        self.data_arr = self.unpack_to_arr()
+        self.form = form
+        self.column_names = column_names
+        self.data_df = self.unpack_to_dataframe()
 
     def save_to_csv(self, path):
-        np.savetxt(path, self.data_arr, delimiter=',')
+        self.data_df.to_csv(path)
         
-    def unpack_to_arr(self, form):
-        self.data_arr = np.array([self.unpack_row(fields) for fields in struct.iter_unpack(form, self.data)])
+    def unpack_to_arr(self):
+        self.data_arr = np.array([self.unpack_row(fields) for fields in struct.iter_unpack(self.form, self.data)])
         return self.data_arr
+    
+    def unpack_to_dataframe(self) -> pd.DataFrame:
+        arr = self.unpack_to_arr()
+        self.data_df = pd.DataFrame(
+            arr,
+            columns = self.column_names,
+        )
+        return self.data_df
+        
+    
+    def bin_data(ms_size = 100):
+        # Bin data by time interal
+        pass
 
 
 class OrderBookFeed(Feed):
+
+    def __init__(self, data):
+        column_names = ["Received time", "MD entry time", "Trasnact time", "Seq_Id", "Bid qty", "Bid price", "Ask qty", "Ask price"]
+        form = "QQQQqqqq"
+        super().__init__(data, form, column_names)
 
     def unpack_row(self, fields) -> np.array:
         # Unpack binary row to array of data
@@ -35,9 +55,9 @@ class OrderBookFeed(Feed):
             bid_qty, bid_prc, ask_qty, ask_prc])
     
     def unpack_to_arr(self) -> np.array:    
-        super().unpack_to_arr(form='QQQQqqqq')
+        super().unpack_to_arr()
         return self.data_arr
-
+    
     def save_to_csv(self):
         super().save_to_csv(path = '../data/sample/order_book.csv')
 
@@ -46,6 +66,11 @@ class OrderBookFeed(Feed):
 
 
 class PublicTradeFeed(Feed):
+
+    def __init__(self, data):
+        form = "QQQQqq"
+        column_names = ["Received time, MD entry time, Transaction time, Seq Id"]
+        super().__init__(data, form, column_names)
 
     def unpack_row(self, fields) -> np.array:
         # Unpack binary row to array of data
@@ -59,11 +84,12 @@ class PublicTradeFeed(Feed):
                 trd_qty, trd_prc])
 
     def unpack_to_arr(self) -> np.array:
-        super().unpack_to_arr(form='QQQQqq')
+        super().unpack_to_arr()
         return self.data_arr
 
     def save_to_csv(self):
         super().save_to_csv(path = '../data/sample/public_trade.csv')
+
 
 
 def order_book_feed(data):
@@ -141,6 +167,7 @@ else:
             with open(file_name, mode='rb') as file:
                 obf = OrderBookFeed(file.read())
                 obf.save_to_csv()
+                obf.data_df.head(10)
 
         elif basename == 'public_trade.feed':
             with open(file_name, mode='rb') as file:
