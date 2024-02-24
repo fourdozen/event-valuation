@@ -120,18 +120,15 @@ def unpack_trade_feed(fields):
             trd_qty, trd_prc])
 
 
-print('0')
 print(sys.argv)
 if len(sys.argv) == 2 and sys.argv[1] in ['-b', '-t']:
     data = sys.stdin.buffer.read()
     if sys.argv[1] == '-b':
         obf = OrderBookFeed(data)
         obf.save_to_csv()
-        print("1")
     else:
         ptf = PublicTradeFeed(data)
         ptf.save_to_csv()
-        print("2")
 
 else:
     for file_name in sys.argv[1:]:
@@ -144,9 +141,8 @@ else:
             with open(file_name, mode='rb') as file:
                 obf = OrderBookFeed(file.read())
                 obf.save_to_csv()
-                print("3")
 
         elif basename == 'public_trade.feed':
             with open(file_name, mode='rb') as file:
-                public_trade_feed(file.read())
-                print("4")
+                ptf = public_trade_feed(file.read())
+                ptf.save_to_csv()
