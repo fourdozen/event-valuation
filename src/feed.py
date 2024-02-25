@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import os
 import sys
-import csv
 import struct
 import numpy as np
 import pandas as pd
@@ -28,18 +27,22 @@ class Feed():
         )
         return self.df
         
-    
-    def bin_data(ms_size = 100):
-        # Bin data by time interal
-        pass
+    def bin_data(self, bucket_size = 0.01):
+        # Split data into discrete discrete bins of fixed time interval
+        init_time = self.df.iloc[0]["Transaction time"]
+        df_copy = self.df.copy(deep = True)
+        df_copy['bin'] = ((data['Transaction time'] - init_time)/bucket_size).astype(int) * bucket_size
+        binned_data = df_copy.groupby('bin').agg({'Bid qty': 'mean', 'Bid price': 'mean', 'Ask qty': 'mean', "Ask, price": 'mean'})
+        return binned_data
 
 
 class OrderBookFeed(Feed):
 
     def __init__(self, data):
-        column_names = ["Received time", "MD entry time", "Trasnact time", "Seq_Id", "Bid qty", "Bid price", "Ask qty", "Ask price"]
+        column_names = ["Received time", "MD entry time", "Transaction time", "Seq Id", "Bid qty", "Bid price", "Ask qty", "Ask price"]
         form = "QQQQqqqq"
         super().__init__(data, form, column_names)
+        self.df.get_mid_price()
 
     def unpack_row(self, fields) -> np.array:
         # Unpack binary row to array of data
@@ -57,9 +60,9 @@ class OrderBookFeed(Feed):
     def unpack_to_arr(self) -> np.array:    
         super().unpack_to_arr()
         return self.data_arr
-    
-    def save_to_csv(self):
-        super().save_to_csv(path = '../data/sample/order_book.csv')
+
+    def save_to_csv(self, path = 'data/sample/order_book.csv'):
+        super().save_to_csv(path)
 
     def bin_data(time_interval = 10):
         pass
@@ -71,14 +74,12 @@ class OrderBookFeed(Feed):
     def get_mid_price(self):
         self.df["Mid Price"] = self.mid_price(self.df["Bid price"], self.df["Ask price"])
 
-    
-
 
 class PublicTradeFeed(Feed):
 
     def __init__(self, data):
         form = "QQQQqq"
-        column_names = ["Received time", "MD entry time", "Transaction time", "Seq Id"]
+        column_names = ["Received time", "MD entry time", "Transaction time", "Seq Id", "Trade qty", "Trade price"]
         super().__init__(data, form, column_names)
 
     def unpack_row(self, fields) -> np.array:
@@ -96,8 +97,8 @@ class PublicTradeFeed(Feed):
         super().unpack_to_arr()
         return self.data_arr
 
-    def save_to_csv(self):
-        super().save_to_csv(path = 'data/sample/public_trade.csv')
+    def save_to_csv(self, path = 'data/sample/public_trade.csv'):
+        super().save_to_csv(path)
 
 
 def order_book_feed(data):
@@ -115,8 +116,6 @@ def order_book_feed(data):
             received_time, md_entry_time, transact_time, seq_id,
             bid_qty, bid_prc, ask_qty, ask_prc))
 
-
-
 def public_trade_feed(data):
     for fields in struct.iter_unpack('QQQQqq', data):
         received_time = int(fields[0])/10**9
@@ -129,29 +128,6 @@ def public_trade_feed(data):
         print('{0:.6f},{1:.6f},{2:.6f},{3},{4},{5}'.format(
             received_time, md_entry_time, transact_time, seq_id,
             trd_qty, trd_prc))
-
-
-
-def unpack_trade_row(fields):
-    received_time = int(fields[0])/10**9
-    md_entry_time = int(fields[1])/10**9
-    transact_time = int(fields[2])/10**9
-    seq_id = int(fields[3])
-    trd_qty = int(fields[4])/10**8
-    trd_prc = int(fields[5])/10**8
-    return np.array([received_time, md_entry_time, transact_time, seq_id,
-            trd_qty, trd_prc])
-
-
-def unpack_trade_feed(fields):
-    received_time = int(fields[0])/10**9
-    md_entry_time = int(fields[1])/10**9
-    transact_time = int(fields[2])/10**9
-    seq_id = int(fields[3])
-    trd_qty = int(fields[4])/10**8
-    trd_prc = int(fields[5])/10**8
-    return np.array([received_time, md_entry_time, transact_time, seq_id,
-            trd_qty, trd_prc])
 
 
 if len(sys.argv) == 2 and sys.argv[1] in ['-b', '-t']:
@@ -173,9 +149,7 @@ else:
         if basename == 'order_book.feed':
             with open(file_name, mode='rb') as file:
                 obf = OrderBookFeed(file.read())
-                obf.save_to_csv
 
         elif basename == 'public_trade.feed':
             with open(file_name, mode='rb') as file:
-                ptf = public_trade_feed(file.read())
-                ptf.save_to_csv()
+                ptf = PublicTradeFeed(file.read())
