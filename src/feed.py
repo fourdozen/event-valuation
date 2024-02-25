@@ -11,10 +11,10 @@ class Feed():
         self.data = data
         self.form = form
         self.column_names = column_names
-        self.data_df = self.unpack_to_dataframe()
+        self.df = self.unpack_to_dataframe()
 
     def save_to_csv(self, path):
-        self.data_df.to_csv(path, index=False)
+        self.df.to_csv(path, index=False)
         
     def unpack_to_arr(self):
         self.data_arr = np.array([self.unpack_row(fields) for fields in struct.iter_unpack(self.form, self.data)])
@@ -22,11 +22,11 @@ class Feed():
     
     def unpack_to_dataframe(self) -> pd.DataFrame:
         arr = self.unpack_to_arr()
-        self.data_df = pd.DataFrame(
+        self.df = pd.DataFrame(
             arr,
             columns = self.column_names,
         )
-        return self.data_df
+        return self.df
         
     
     def bin_data(ms_size = 100):
@@ -61,8 +61,17 @@ class OrderBookFeed(Feed):
     def save_to_csv(self):
         super().save_to_csv(path = '../data/sample/order_book.csv')
 
-    def bin_data(time_interval = 50):
+    def bin_data(time_interval = 10):
         pass
+
+    @staticmethod
+    def mid_price(bid_price, ask_price):
+        return (bid_price + ask_price)/2
+    
+    def get_mid_price(self):
+        self.df["Mid Price"] = self.mid_price(self.df["Bid price"], self.df["Ask price"])
+
+    
 
 
 class PublicTradeFeed(Feed):
@@ -89,7 +98,6 @@ class PublicTradeFeed(Feed):
 
     def save_to_csv(self):
         super().save_to_csv(path = 'data/sample/public_trade.csv')
-
 
 
 def order_book_feed(data):
