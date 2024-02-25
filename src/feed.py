@@ -14,7 +14,7 @@ class Feed():
         self.data_df = self.unpack_to_dataframe()
 
     def save_to_csv(self, path):
-        self.data_df.to_csv(path)
+        self.data_df.to_csv(path, index=False)
         
     def unpack_to_arr(self):
         self.data_arr = np.array([self.unpack_row(fields) for fields in struct.iter_unpack(self.form, self.data)])
@@ -69,7 +69,7 @@ class PublicTradeFeed(Feed):
 
     def __init__(self, data):
         form = "QQQQqq"
-        column_names = ["Received time, MD entry time, Transaction time, Seq Id"]
+        column_names = ["Received time", "MD entry time", "Transaction time", "Seq Id"]
         super().__init__(data, form, column_names)
 
     def unpack_row(self, fields) -> np.array:
@@ -88,7 +88,7 @@ class PublicTradeFeed(Feed):
         return self.data_arr
 
     def save_to_csv(self):
-        super().save_to_csv(path = '../data/sample/public_trade.csv')
+        super().save_to_csv(path = 'data/sample/public_trade.csv')
 
 
 
@@ -146,7 +146,6 @@ def unpack_trade_feed(fields):
             trd_qty, trd_prc])
 
 
-print(sys.argv)
 if len(sys.argv) == 2 and sys.argv[1] in ['-b', '-t']:
     data = sys.stdin.buffer.read()
     if sys.argv[1] == '-b':
@@ -166,8 +165,7 @@ else:
         if basename == 'order_book.feed':
             with open(file_name, mode='rb') as file:
                 obf = OrderBookFeed(file.read())
-                obf.save_to_csv()
-                obf.data_df.head(10)
+                obf.save_to_csv
 
         elif basename == 'public_trade.feed':
             with open(file_name, mode='rb') as file:
