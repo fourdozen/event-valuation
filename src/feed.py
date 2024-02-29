@@ -16,7 +16,9 @@ class Feed():
         self.df.to_csv(path, index=False)
         
     def unpack_to_arr(self):
-        self.data_arr = np.array([self.unpack_row(fields) for fields in struct.iter_unpack(self.form, self.data)])
+        self.data_arr = np.array(
+            [self.unpack_row(fields) for fields in struct.iter_unpack(self.form, self.data)]
+        )
         return self.data_arr
     
     def unpack_to_dataframe(self) -> pd.DataFrame:
@@ -32,14 +34,23 @@ class Feed():
         init_time = self.df.iloc[0]["Transaction time"]
         df_copy = self.df.copy(deep = True)
         df_copy['bin'] = ((data['Transaction time'] - init_time)/bucket_size).astype(int) * bucket_size
-        binned_data = df_copy.groupby('bin').agg({'Bid qty': 'mean', 'Bid price': 'mean', 'Ask qty': 'mean', "Ask, price": 'mean'})
+        binned_data = df_copy.groupby('bin').agg({
+                'Bid qty': 'mean', 
+                'Bid price': 'mean',
+                'Ask qty': 'mean',
+                "Ask, price": 'mean'
+            })
         return binned_data
 
 
 class OrderBookFeed(Feed):
 
+
+
+
     def __init__(self, data):
-        column_names = ["Received time", "MD entry time", "Transaction time", "Seq Id", "Bid qty", "Bid price", "Ask qty", "Ask price"]
+        column_names = ["Received time", "MD entry time", "Transaction time", 
+                        "Seq Id", "Bid qty", "Bid price", "Ask qty", "Ask price"]
         form = "QQQQqqqq"
         super().__init__(data, form, column_names)
         self.df.get_mid_price()
@@ -79,7 +90,8 @@ class PublicTradeFeed(Feed):
 
     def __init__(self, data):
         form = "QQQQqq"
-        column_names = ["Received time", "MD entry time", "Transaction time", "Seq Id", "Trade qty", "Trade price"]
+        column_names = ["Received time", "MD entry time", "Transaction time", 
+                        "Seq Id", "Trade qty", "Trade price"]
         super().__init__(data, form, column_names)
 
     def unpack_row(self, fields) -> np.array:
