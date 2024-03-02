@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 
 class Feed():
+
     def __init__(self, data, form: str, column_names: list):
         self.data = data
         self.form = form
@@ -33,27 +34,24 @@ class Feed():
         # Split data into discrete discrete bins of fixed time interval
         init_time = self.df.iloc[0]["Transaction time"]
         df_copy = self.df.copy(deep = True)
-        df_copy['bin'] = ((data['Transaction time'] - init_time)/bucket_size).astype(int) * bucket_size
-        binned_data = df_copy.groupby('bin').agg({
+        df_copy['bin'] = ((df_copy['Transaction time'] - init_time)/bucket_size).astype(int) * bucket_size
+        self.binned_data = df_copy.groupby('bin').agg({
                 'Bid qty': 'mean', 
                 'Bid price': 'mean',
                 'Ask qty': 'mean',
-                "Ask, price": 'mean'
+                "Ask price": 'mean'
             })
-        return binned_data
+        return self.binned_data
 
 
 class OrderBookFeed(Feed):
-
-
-
 
     def __init__(self, data):
         column_names = ["Received time", "MD entry time", "Transaction time", 
                         "Seq Id", "Bid qty", "Bid price", "Ask qty", "Ask price"]
         form = "QQQQqqqq"
         super().__init__(data, form, column_names)
-        self.df.get_mid_price()
+        self.get_mid_price()
 
     def unpack_row(self, fields) -> np.array:
         # Unpack binary row to array of data
@@ -68,15 +66,12 @@ class OrderBookFeed(Feed):
         return np.array([received_time, md_entry_time, transact_time, seq_id,
             bid_qty, bid_prc, ask_qty, ask_prc])
     
-    def unpack_to_arr(self) -> np.array:    
+    def unpack_to_arr(self) -> np.array:
         super().unpack_to_arr()
         return self.data_arr
 
     def save_to_csv(self, path = 'data/sample/order_book.csv'):
         super().save_to_csv(path)
-
-    def bin_data(time_interval = 10):
-        pass
 
     @staticmethod
     def mid_price(bid_price, ask_price):
@@ -111,6 +106,20 @@ class PublicTradeFeed(Feed):
 
     def save_to_csv(self, path = 'data/sample/public_trade.csv'):
         super().save_to_csv(path)
+
+    def bin_data(self, bucket_size = 0.01):
+        # Split data into discrete discrete bins of fixed time interval
+        init_time = self.df.iloc[0]["Transaction time"]
+        df_copy = self.df.copy(deep = True)
+        df_copy['bin'] = ((df_copy['Transaction time'] - init_time)/bucket_size).astype(int) * bucket_size
+        self.binned_data = df_copy.groupby('bin').agg({
+                'Trade qty': ['sum', 'mean'], 
+                'Trade price': ['max', 'min'],
+            })
+        self.binned_data['Volume'] = self.binned_data['Trade qty']['sum']
+        self.binned_data['Depth'] = self.binned_data['Trade price']['max'] - self.binned_data['Trade price']['min']
+        self.binned_data['Norm depth'] = np.divide(self.binned_data['Volume'],self.binned_data['Trade qty']['mean']) 
+        return self.binned_data
 
 
 def order_book_feed(data):
@@ -161,7 +170,11 @@ else:
         if basename == 'order_book.feed':
             with open(file_name, mode='rb') as file:
                 obf = OrderBookFeed(file.read())
+                obf.bin_data()
+                print(obf.binned_data)
 
         elif basename == 'public_trade.feed':
             with open(file_name, mode='rb') as file:
                 ptf = PublicTradeFeed(file.read())
+                ptf.bin_data()
+                print(ptf.binned_data['Trade qty'])
