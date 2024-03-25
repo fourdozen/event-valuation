@@ -162,3 +162,5 @@ cython_debug/
 *.feed
 
 *.h5
+
+*.png
