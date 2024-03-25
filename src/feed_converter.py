@@ -12,9 +12,9 @@ class FeedConverter():
         self.form = form
         self.column_names = column_names
 
-    def convert(self, name, path):
-        df = self._unpack_to_dataframe()
-        self._save_to_hdfstore(name, path)
+    def convert(self, path):
+        self._unpack_to_dataframe()
+        self._save_to_hdfstore(path)
 
     def _save_to_csv(self, path):
         self.df.to_csv(path, index=False)
@@ -49,10 +49,10 @@ class FeedConverter():
     #         })
     #     return self.binned_data
     
-    def _save_to_hdfstore(self, name, path):
-        self.store = pd.HDFStore(path)
-        self.store[name] = self.df
-
+    def _save_to_hdfstore(self, path):
+        store = pd.HDFStore(path, 'w')
+        store.put('df', self.df, data_columns=True)
+        store.close()
 
 class OrderBookFeedConverter(FeedConverter):
 
@@ -62,8 +62,8 @@ class OrderBookFeedConverter(FeedConverter):
         form = "QQQQqqqq"
         super().__init__(data, form, column_names)
 
-    def convert(self, name='order_book', path='data/sample/order_book.h5'):
-        return super().convert(name, path)
+    def convert(self, path='data/sample/order_book.h5'):
+        return super().convert(path)
 
     def _unpack_row(self, fields) -> np.array:
         # Unpack binary row to array of data
@@ -92,8 +92,8 @@ class OrderBookFeedConverter(FeedConverter):
     # def get_mid_price(self):
     #     self.df["Mid Price"] = self.mid_price(self.df["Bid price"], self.df["Ask price"])
 
-    def _save_to_hdfstore(self, name="order_book", path="data/sample/order_book.h5"):
-        return super()._save_to_hdfstore(name, path)
+    def _save_to_hdfstore(self, path='data/sample/order_book.h5'):
+        return super()._save_to_hdfstore(path)
 
 
 class PublicTradeFeedConverter(FeedConverter):
@@ -104,8 +104,8 @@ class PublicTradeFeedConverter(FeedConverter):
                         "Seq Id", "Trade qty", "Trade price"]
         super().__init__(data, form, column_names)
 
-    def convert(self, name='public_trade', path='data/sample/public_trade.h5'):
-        return super().convert(name, path)
+    def convert(self, path='data/sample/public_trade.h5'):
+        return super().convert(path)
 
     def _unpack_row(self, fields) -> np.array:
         # Unpack binary row to array of data
@@ -139,8 +139,8 @@ class PublicTradeFeedConverter(FeedConverter):
     #     self.binned_data['Norm depth'] = np.divide(self.binned_data['Volume'],self.binned_data['Trade qty']['mean']) 
     #     return self.binned_data
     
-    def _save_to_hdfstore(self, name='public_trade', path="data/sample/public_trade.h5"):
-        return super()._save_to_hdfstore(name, path)
+    def _save_to_hdfstore(self, path="data/sample/public_trade.h5"):
+        return super()._save_to_hdfstore(path)
 
 
 # def order_book_FeedConverter(data):
