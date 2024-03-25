@@ -57,18 +57,18 @@ class OrderBookFeedReader(FeedReader):
         super().__init__(data, form, column_names)
         self.get_mid_price()
 
-    def unpack_row(self, fields) -> np.array:
-        # Unpack binary row to array of data
-        received_time = int(fields[0])/10**9
-        md_entry_time = int(fields[1])/10**9
-        transact_time = int(fields[2])/10**9
-        seq_id = int(fields[3])
-        bid_qty = int(fields[4])/10**8
-        bid_prc = int(fields[5])/10**8
-        ask_qty = int(fields[6])/10**8
-        ask_prc = int(fields[7])/10**8
-        return np.array([received_time, md_entry_time, transact_time, seq_id,
-            bid_qty, bid_prc, ask_qty, ask_prc])
+    # def unpack_row(self, fields) -> np.array:
+    #     # Unpack binary row to array of data
+    #     received_time = int(fields[0])/10**9
+    #     md_entry_time = int(fields[1])/10**9
+    #     transact_time = int(fields[2])/10**9
+    #     seq_id = int(fields[3])
+    #     bid_qty = int(fields[4])/10**8
+    #     bid_prc = int(fields[5])/10**8
+    #     ask_qty = int(fields[6])/10**8
+    #     ask_prc = int(fields[7])/10**8
+    #     return np.array([received_time, md_entry_time, transact_time, seq_id,
+    #         bid_qty, bid_prc, ask_qty, ask_prc])
     
     def unpack_to_arr(self) -> np.array:
         super().unpack_to_arr()
@@ -114,19 +114,19 @@ class PublicTradeFeedReader(FeedReader):
     def save_to_csv(self, path = 'data/sample/public_trade.csv'):
         super().save_to_csv(path)
 
-    def bin_data(self, bucket_size = 0.01):
-        # Split data into discrete discrete bins of fixed time interval
-        init_time = self.df.iloc[0]["Transaction time"]
-        df_copy = self.df.copy(deep = True)
-        df_copy['bin'] = ((df_copy['Transaction time'] - init_time)/bucket_size).astype(int) * bucket_size
-        self.binned_data = df_copy.groupby('bin').agg({
-                'Trade qty': ['sum', 'mean'], 
-                'Trade price': ['max', 'min'],
-            })
-        self.binned_data['Volume'] = self.binned_data['Trade qty']['sum']
-        self.binned_data['Depth'] = self.binned_data['Trade price']['max'] - self.binned_data['Trade price']['min']
-        self.binned_data['Norm depth'] = np.divide(self.binned_data['Volume'],self.binned_data['Trade qty']['mean']) 
-        return self.binned_data
+    # def bin_data(self, bucket_size = 0.01):
+    #     # Split data into discrete discrete bins of fixed time interval
+    #     init_time = self.df.iloc[0]["Transaction time"]
+    #     df_copy = self.df.copy(deep = True)
+    #     df_copy['bin'] = ((df_copy['Transaction time'] - init_time)/bucket_size).astype(int) * bucket_size
+    #     self.binned_data = df_copy.groupby('bin').agg({
+    #             'Trade qty': ['sum', 'mean'], 
+    #             'Trade price': ['max', 'min'],
+    #         })
+    #     self.binned_data['Volume'] = self.binned_data['Trade qty']['sum']
+    #     self.binned_data['Depth'] = self.binned_data['Trade price']['max'] - self.binned_data['Trade price']['min']
+    #     self.binned_data['Norm depth'] = np.divide(self.binned_data['Volume'],self.binned_data['Trade qty']['mean']) 
+    #     return self.binned_data
     
     def save_to_hdfstore(self, name='public_trade', path="data/sample/public_trade.h5"):
         return super().save_to_hdfstore(name, path)
