@@ -160,3 +160,5 @@ cython_debug/
 
 # .feed files
 *.feed
+
+*.h5
