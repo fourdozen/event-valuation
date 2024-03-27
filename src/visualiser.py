@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 from datetime import datetime
-from hpf5reader import read_data
+from hdf5reader import HDF5Reader
 
 class Visualiser():
 
@@ -68,5 +68,7 @@ class Visualiser():
 
 
 if __name__ == '__main__':
-    obf, ptf = read_data() 
+    hdfr = HDF5Reader()
+    obf = HDF5Reader.read_data('data/sample/order_book.h5')
+    ptf = HDF5Reader.read_data('data/sample/public_trade.h5')
     Visualiser(obf, ptf).visualise()

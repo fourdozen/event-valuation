@@ -4,6 +4,7 @@ import sys
 import struct
 import numpy as np
 import pandas as pd
+from hdf5reader import HDF5Reader
 
 class FeedConverter():
 
@@ -36,23 +37,10 @@ class FeedConverter():
         )
         return self.df
         
-    # def bin_data(self, bucket_size = 0.01):
-    #     # Split data into discrete discrete bins of fixed time interval
-    #     init_time = self.df.iloc[0]["Transaction time"]
-    #     df_copy = self.df.copy(deep = True)
-    #     df_copy['bin'] = ((df_copy['Transaction time'] - init_time)/bucket_size).astype(int) * bucket_size
-    #     self.binned_data = df_copy.groupby('bin').agg({
-    #             'Bid qty': 'mean', 
-    #             'Bid price': 'mean',
-    #             'Ask qty': 'mean',
-    #             "Ask price": 'mean'
-    #         })
-    #     return self.binned_data
+
     
     def _save_to_hdfstore(self, path):
-        store = pd.HDFStore(path, 'w')
-        store.put('df', self.df, data_columns=True)
-        store.close()
+        HDF5Reader.write_data(path, self.df)
 
 class OrderBookFeedConverter(FeedConverter):
 
