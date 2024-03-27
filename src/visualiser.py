@@ -67,7 +67,7 @@ class Visualiser():
         self.plot_spread(fig, ax2)
         plt.xlabel('Time UTC')
         plt.tight_layout()
-        plt.savefig('Basic_data.png', dpi=300)
+        plt.savefig('basic_data.png', dpi=300)
 
 
 if __name__ == '__main__':
