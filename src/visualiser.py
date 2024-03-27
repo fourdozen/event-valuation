@@ -51,13 +51,13 @@ class Visualiser():
 
     def plot_volume(self, fig, ax):
         ax.plot(self.public_trade['Transaction UTC'], np.abs(self.public_trade['Trade qty']))
-        ax.set_title('Volume')
+        ax.set_title('Public Trade Volume')
         ax.set_ylabel('Traded Qty (Volume)')
 
     def plot_spread(self, fig, ax):
         self.__get_spread(self.order_book)
         ax.plot(self.order_book['Transaction UTC'], self.order_book['Spread'])
-        ax.set_title('Spread')
+        ax.set_title('Order Book Spread')
         ax.set_ylabel('(USD)')
 
     def plot_basic_data(self):
