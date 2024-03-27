@@ -11,11 +11,14 @@ class Visualiser():
     def __init__(self, order_book, public_trade) -> None:
         self.order_book = order_book
         self.public_trade = public_trade
-        self.order_book['Transaction UTC'] = self.__get_datetime(self.order_book)
-        self.public_trade['Transaction UTC'] = self.__get_datetime(self.public_trade)
+        self.utc_to_timestamp()
 
     def visualise(self):
         self.plot_basic_data()
+
+    def utc_to_timestamp(self):
+        self.order_book['Transaction UTC'] = self.__get_datetime(self.order_book)
+        self.public_trade['Transaction UTC'] = self.__get_datetime(self.public_trade)
 
     @staticmethod
     def __get_mid_price(df):
