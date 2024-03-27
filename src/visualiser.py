@@ -4,24 +4,18 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 from datetime import datetime
+from hpf5reader import read_data
 
 class Visualiser():
 
-    def __init__(self) -> None:
-        self.__read_data()
+    def __init__(self, order_book, public_trade) -> None:
+        self.order_book = order_book
+        self.public_trade = public_trade
         self.order_book['Transaction UTC'] = self.__get_datetime(self.order_book)
         self.public_trade['Transaction UTC'] = self.__get_datetime(self.public_trade)
 
     def visualise(self):
         self.plot_basic_data()
-        
-    def __read_data(self, path = 'data/sample/'):
-        ob_store = pd.HDFStore(path + 'order_book.h5', mode='r')
-        pt_store = pd.HDFStore(path + 'public_trade.h5', mode='r')
-        self.order_book = ob_store.get('df')
-        self.public_trade = pt_store.get('df')
-        ob_store.close()
-        pt_store.close()
 
     @staticmethod
     def __get_mid_price(df):
@@ -39,7 +33,7 @@ class Visualiser():
         df['Spread'] = df['Ask price'] - df['Bid price']
         return df['Spread']
 
-    def plot_mid_price(self, fig, ax):
+    def plot_mid_price(self, ax):
         self.__get_mid_price(self.order_book)
         xfmt = mpl.dates.DateFormatter('%Y-%m-%d %H:%M:%S')
         ax.xaxis.set_major_formatter(xfmt)
@@ -49,12 +43,12 @@ class Visualiser():
         ax.set_title('Order Book Mid Price')
         ax.set_ylabel('Price (USD)')
 
-    def plot_volume(self, fig, ax):
+    def plot_volume(self, ax):
         ax.plot(self.public_trade['Transaction UTC'], np.abs(self.public_trade['Trade qty']))
         ax.set_title('Public Trade Volume')
         ax.set_ylabel('Traded Qty (Volume)')
 
-    def plot_spread(self, fig, ax):
+    def plot_spread(self, ax):
         self.__get_spread(self.order_book)
         ax.plot(self.order_book['Transaction UTC'], self.order_book['Spread'])
         ax.set_title('Order Book Spread')
@@ -62,13 +56,14 @@ class Visualiser():
 
     def plot_basic_data(self):
         fig, (ax0, ax1, ax2) = plt.subplots(3, 1, sharex='col', figsize=(10.5, 13.5))
-        self.plot_mid_price(fig, ax0)
-        self.plot_volume(fig, ax1)
-        self.plot_spread(fig, ax2)
+        self.plot_mid_price(ax0)
+        self.plot_volume(ax1)
+        self.plot_spread(ax2)
         plt.xlabel('Time UTC')
         plt.tight_layout()
         plt.savefig('basic_data.png', dpi=300)
 
 
 if __name__ == '__main__':
-    Visualiser().visualise()
+    obf, ptf = read_data() 
+    Visualiser(obf, ptf).visualise()
