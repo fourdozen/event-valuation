@@ -73,13 +73,6 @@ class OrderBookFeedConverter(FeedConverter):
     def _save_to_csv(self, path = 'data/sample/order_book.csv'):
         super()._save_to_csv(path)
 
-    # @staticmethod
-    # def mid_price(bid_price, ask_price):
-    #     return (bid_price + ask_price)/2
-    
-    # def get_mid_price(self):
-    #     self.df["Mid Price"] = self.mid_price(self.df["Bid price"], self.df["Ask price"])
-
     def _save_to_hdfstore(self, path='data/sample/order_book.h5'):
         return super()._save_to_hdfstore(path)
 
