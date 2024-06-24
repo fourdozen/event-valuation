@@ -1,6 +1,5 @@
 import pandas as pd
 from hdf5reader import HDF5Reader
-import matplotlib.pyplot as plt
 
 class EventAnalyser():
     def __init__(self, order_book: pd.DataFrame, public_trade: pd.DataFrame):
@@ -32,17 +31,6 @@ class EventAnalyser():
         self.__min_max_timestamps()
         return self.binned_data
     
-    def plot_price_change_distribution(self):
-        price_change = self.binned_data['Relative price change']
-        fig, ax = plt.subplots()
-        ax.hist(price_change, bins=100)
-        ax.set_yscale('log')
-        ax.set_title(r'Distribution of $\frac{\Delta P}{\bar{P}}$, where $P$ is the Mid price')
-        ax.set_ylabel('Count')
-        ax.set_xlabel(r'$\frac{\Delta P}{\bar{P}}$')
-        plt.tight_layout()
-        plt.savefig('price_change_distribution.png', dpi=300)
-
     def __min_max_timestamps(self):
         max_time_stamps = self.order_book.iloc[self.binned_data['Mid price|idxmax']]['Transaction time'].reset_index(drop=True)
         max_time_stamps.name = 'Max timestamp'
@@ -66,11 +54,10 @@ class EventAnalyser():
 
     def analyse(self):
         self.__get_mid_price()
-        self.bin_data(0.1)
+        self.bin_data()
         self.get_direction()
-        self.plot_price_change_distribution()
         self.order_book["Transaction time"] = self.order_book["Transaction time"] - self.order_book.iloc[0]["Transaction time"]
-        print(self.binned_data.head(10))
+        return self.binned_data
 
 
 if __name__ == "__main__":

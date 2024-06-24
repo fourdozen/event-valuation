@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 from hdf5reader import HDF5Reader
+from event_analyser import EventAnalyser
 
 class Visualiser():
 
@@ -14,7 +15,8 @@ class Visualiser():
         self.utc_to_timestamp()
 
     def visualise(self):
-        self.plot_basic_data()
+        # self.plot_basic_data()
+        self.plot_price_change_distribution()
 
     def utc_to_timestamp(self):
         self.order_book['Transaction UTC'] = self.__get_datetime(self.order_book)
@@ -65,6 +67,21 @@ class Visualiser():
         plt.xlabel('Time UTC')
         plt.tight_layout()
         plt.savefig('basic_data.png', dpi=300)
+
+    def plot_price_change_distribution(self):
+        # Get data (Should be separate)
+        ea = EventAnalyser(self.order_book, self.public_trade)
+        ea.analyse()
+        binned_data = ea.binned_data
+        price_change = binned_data['Relative price change']
+        fig, ax = plt.subplots()
+        ax.hist(price_change, bins=100)
+        ax.set_yscale('log')
+        ax.set_title(r'Distribution of $\frac{\Delta P}{\bar{P}}$ (relative price change), where $P$ is the Mid price')
+        ax.set_ylabel('Count')
+        ax.set_xlabel(r'$\frac{\Delta P}{\bar{P}}$')
+        plt.tight_layout()
+        plt.savefig('price_change_distribution.png', dpi=300)
 
 
 if __name__ == '__main__':
