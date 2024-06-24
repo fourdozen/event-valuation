@@ -69,10 +69,11 @@ class Visualiser():
         plt.savefig('basic_data.png', dpi=300)
 
     def plot_price_change_distribution(self):
-        # Get data (Should be separate)
+        # Get data (Need to change to be separate)
         ea = EventAnalyser(self.order_book, self.public_trade)
         ea.analyse()
         binned_data = ea.binned_data
+        # Plot price change
         price_change = binned_data['Relative price change']
         fig, ax = plt.subplots()
         ax.hist(price_change, bins=100)
