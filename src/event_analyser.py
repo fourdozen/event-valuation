@@ -9,8 +9,7 @@ class EventAnalyser():
 
     @staticmethod
     def __relative_price_change(df):
-        mp_col = df['Mid price']
-        df['Relative price change'] = (mp_col['max'] - mp_col['min']) / mp_col['mean']
+        df['Relative price change'] = (df['Mid price|max'] - df['Mid price|min']) / df['Mid price|mean']
         return df['Relative price change']
 
     @staticmethod
@@ -21,9 +20,6 @@ class EventAnalyser():
     def __get_mid_price(self):
         self.__mid_price(self.order_book)
 
-    def price_direction(self):
-        mp_col = self.binned_data['Mid price']
-
     def bin_data(self, bucket_size = 0.1):
         # Split data into discrete discrete bins of fixed time interval
         init_time = self.order_book.iloc[0]["Transaction time"]
@@ -31,6 +27,7 @@ class EventAnalyser():
         self.binned_data = self.order_book.copy(deep=True).groupby('Time bin').agg({
             'Mid price': ('max', 'min', 'mean', 'idxmax', 'idxmin'),
             })
+        self.binned_data.columns = self.binned_data.columns.map('|'.join).str.strip('|')
         self.__relative_price_change(self.binned_data)
         self.__min_max_timestamps()
         return self.binned_data
@@ -38,26 +35,39 @@ class EventAnalyser():
     def plot_price_change_distribution(self):
         price_change = self.binned_data['Relative price change']
         fig, ax = plt.subplots()
-        ax.hist(price_change, bins=50)
+        ax.hist(price_change, bins=100)
         ax.set_yscale('log')
-        ax.set_title(r'Distribution of $\frac{\left|{\Delta P}\right|}{\bar{P}}$, where $P$ is the Mid price')
+        ax.set_title(r'Distribution of $\frac{\Delta P}{\bar{P}}$, where $P$ is the Mid price')
         ax.set_ylabel('Count')
-        ax.set_xlabel(r'$\frac{\left|{\Delta P}\right|}{\bar{P}}$')
+        ax.set_xlabel(r'$\frac{\Delta P}{\bar{P}}$')
         plt.tight_layout()
         plt.savefig('price_change_distribution.png', dpi=300)
 
     def __min_max_timestamps(self):
-        max_time_stamps = self.order_book.iloc[self.binned_data['Mid price', 'idxmax']]['Transaction time'].reset_index(drop=True)
+        max_time_stamps = self.order_book.iloc[self.binned_data['Mid price|idxmax']]['Transaction time'].reset_index(drop=True)
         max_time_stamps.name = 'Max timestamp'
-        min_time_stamps = self.order_book.iloc[self.binned_data['Mid price', 'idxmin']]['Transaction time'].reset_index(drop=True)
+        min_time_stamps = self.order_book.iloc[self.binned_data['Mid price|idxmin']]['Transaction time'].reset_index(drop=True)
         min_time_stamps.name = 'Min timestamp'
         self.min_max_time_stamps = pd.concat([max_time_stamps, min_time_stamps], axis=1)
-        self.binned_data.join(self.min_max_time_stamps)
+        self.min_max_time_stamps.index = self.binned_data.index
+        self.binned_data = pd.concat([self.binned_data, self.min_max_time_stamps], axis=1)
         return self.min_max_time_stamps
     
+    @staticmethod
+    def __direction(row):
+        if row['Min timestamp'] <= row['Max timestamp']:
+            return 1
+        elif row['Min timestamp'] > row['Max timestamp']:
+            return -1
+        
+    def get_direction(self):
+        self.binned_data['Direction'] = self.binned_data.apply(self.__direction, axis=1)
+        self.binned_data['Relative price change'] *= self.binned_data['Direction']
+
     def analyse(self):
         self.__get_mid_price()
         self.bin_data(0.1)
+        self.get_direction()
         self.plot_price_change_distribution()
         self.order_book["Transaction time"] = self.order_book["Transaction time"] - self.order_book.iloc[0]["Transaction time"]
         print(self.binned_data.head(10))
