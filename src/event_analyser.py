@@ -68,6 +68,10 @@ class EventAnalyser():
         else:
             raise ValueError("There is no 'Transaction time' in the DataFrame that is less than or equal to the input timestamp.")
 
+    def get_post_event_price_change(self, event_time, event_end_price, time_delay):
+        post_event_price = self.get_most_recent_price(event_time + time_delay)
+        price_change = post_event_price - event_end_price
+        return price_change
 
 if __name__ == "__main__":
     hdfr = HDF5Reader()
