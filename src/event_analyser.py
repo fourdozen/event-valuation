@@ -28,6 +28,11 @@ class EventAnalyser():
     
     def __get_mid_price(self):
         return self.__mid_price(self.order_book)
+    @staticmethod
+    def __rebase_time_column(df, column_name, init_time):
+        # Make time series column values relative to inital time
+        df[column_name] = df[column_name] - init_time
+        return df[column_name]
 
     def bin_data(self, bucket_size = 0.1):
         # Split data into discrete discrete bins of specified time interval
