@@ -6,6 +6,13 @@ class EventAnalyser():
         self.order_book = order_book
         self.public_trade = public_trade
 
+    def analyse(self):
+        self.__get_mid_price()
+        self.bin_data()
+        self.get_direction()
+        self.order_book["Rebased time"] = self.order_book["Transaction time"] - self.order_book.iloc[0]["Transaction time"]
+        return self.binned_data
+
     @staticmethod
     def __relative_price_change(df):
         df['Relative price change'] = (df['Mid price|max'] - df['Mid price|min']) / df['Mid price|mean']
@@ -17,10 +24,10 @@ class EventAnalyser():
         return df['Mid price']
     
     def __get_mid_price(self):
-        self.__mid_price(self.order_book)
+        return self.__mid_price(self.order_book)
 
     def bin_data(self, bucket_size = 0.1):
-        # Split data into discrete discrete bins of fixed time interval
+        # Split data into discrete discrete bins of specified time interval
         init_time = self.order_book.iloc[0]["Transaction time"]
         self.order_book['Time bin'] = ((self.order_book['Transaction time'] - init_time)/bucket_size).astype(int) * bucket_size
         self.binned_data = self.order_book.copy(deep=True).groupby('Time bin').agg({
@@ -52,12 +59,14 @@ class EventAnalyser():
         self.binned_data['Direction'] = self.binned_data.apply(self.__direction, axis=1)
         self.binned_data['Relative price change'] *= self.binned_data['Direction']
 
-    def analyse(self):
-        self.__get_mid_price()
-        self.bin_data()
-        self.get_direction()
-        self.order_book["Transaction time"] = self.order_book["Transaction time"] - self.order_book.iloc[0]["Transaction time"]
-        return self.binned_data
+    def get_most_recent_price(self, timestamp):
+        mask = self.order_book['Transaction time'] <= timestamp
+        if mask.any():
+            nearest_time = self.order_book.loc[mask, 'Transaction time'].max()
+            recent_price = self.order_book.loc[self.order_book['Transaction time'] == nearest_time, 'Mid price'].values[0]
+            return recent_price
+        else:
+            raise ValueError("There is no 'Transaction time' in the DataFrame that is less than or equal to the input timestamp.")
 
 
 if __name__ == "__main__":
