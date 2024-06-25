@@ -72,6 +72,12 @@ class EventAnalyser():
         post_event_price = self.get_most_recent_price(event_time + time_delay)
         price_change = post_event_price - event_end_price
         return price_change
+    
+    def get_post_event_relative_price_change(self, event_time, event_end_price, time_delay):
+        post_event_price = self.get_most_recent_price(event_time + time_delay)
+        relative_price_change = post_event_price - event_end_price / event_end_price
+        return relative_price_change
+
 
 if __name__ == "__main__":
     hdfr = HDF5Reader()
