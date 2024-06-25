@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 from hdf5reader import HDF5Reader
 
 class EventAnalyser():
@@ -70,14 +71,16 @@ class EventAnalyser():
 
     def get_post_event_price_change(self, event_time, event_end_price, time_delay):
         post_event_price = self.get_most_recent_price(event_time + time_delay)
-        price_change = post_event_price - event_end_price
+        price_change = np.subtract(post_event_price, event_end_price)
         return price_change
     
     def get_post_event_relative_price_change(self, event_time, event_end_price, time_delay):
-        post_event_price = self.get_most_recent_price(event_time + time_delay)
-        relative_price_change = post_event_price - event_end_price / event_end_price
+        price_change = self.get_post_event_price_change(event_time, event_end_price, time_delay)
+        relative_price_change = np.divide(price_change, event_end_price)
         return relative_price_change
 
+    def get_relative_price_change_distribution(self, event_times, event_final_prices, time_delays = (0.1, 0.2, 0.5, 1.0, 2.0)):
+        pass
 
 if __name__ == "__main__":
     hdfr = HDF5Reader()
