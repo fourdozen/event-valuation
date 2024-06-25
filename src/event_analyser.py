@@ -13,7 +13,7 @@ class EventAnalyser():
         self.get_direction()
         self.__event_end_times(self.binned_data)
         self.__event_end_prices(self.binned_data)
-        self.order_book["Rebased time"] = self.order_book["Transaction time"] - self.order_book.iloc[0]["Transaction time"]
+        self.__assign_event_size_buckets(self.binned_data)
         return self.binned_data
 
     @staticmethod
@@ -81,6 +81,36 @@ class EventAnalyser():
         choices = [df['Mid price|max'], df['Mid price|min']]
         df['Event end price'] = np.select(conditions, choices)
         return df["Event end price"]
+    
+
+    @staticmethod
+    def __assign_event_size_buckets(df):
+        # Define the ranges and corresponding values
+        conditions = [
+            (df['Relative price change'] < -0.0040),
+            (df['Relative price change'] >= -0.0040) & (df['Relative price change'] < -0.0020),
+            (df['Relative price change'] >= -0.0020) & (df['Relative price change'] < -0.0010),
+            (df['Relative price change'] >= -0.0010) & (df['Relative price change'] < -0.0005),
+            (df['Relative price change'] >= -0.0005) & (df['Relative price change'] < 0.0005),
+            (df['Relative price change'] >= 0.0005) & (df['Relative price change'] < 0.0010),
+            (df['Relative price change'] >= 0.0010) & (df['Relative price change'] < 0.0020),
+            (df['Relative price change'] >= 0.0020) & (df['Relative price change'] < 0.0040),
+            (df['Relative price change'] >= 0.0040)
+        ]
+        values = [
+            -4,  # For range: Relative price change < -0.0040
+            -3,  # For range: -0.0040 <= Relative price change < -0.0020
+            -2,  # For range: -0.0020 <= Relative price change < -0.0010
+            -1,  # For range: -0.0010 <= Relative price change < -0.0005
+            0,   # For range: -0.0005 <= Relative price change < 0.0005
+            1,   # For range: 0.0005 <= Relative price change < 0.0010
+            2,   # For range: 0.0010 <= Relative price change < 0.0020
+            3,   # For range: 0.0020 <= Relative price change < 0.0040
+            4    # For range: Relative price change >= 0.0040
+        ]
+        df['Event size bucket'] = np.select(conditions, values, default=0)
+        return df
+    
     def get_most_recent_price(self, timestamp):
         mask = self.order_book['Transaction time'] <= timestamp
         if mask.any():
