@@ -11,6 +11,8 @@ class EventAnalyser():
         self.__get_mid_price()
         self.bin_data()
         self.get_direction()
+        self.__event_end_times(self.binned_data)
+        self.__event_end_prices(self.binned_data)
         self.order_book["Rebased time"] = self.order_book["Transaction time"] - self.order_book.iloc[0]["Transaction time"]
         return self.binned_data
 
@@ -60,6 +62,20 @@ class EventAnalyser():
         self.binned_data['Direction'] = self.binned_data.apply(self.__direction, axis=1)
         self.binned_data['Relative price change'] *= self.binned_data['Direction']
 
+    @staticmethod
+    def __event_end_times(df):
+        df["Event end time"] = df[["Max timestamp", "Min timestamp"]].max(axis=1)
+        return df["Event end time"]
+    
+    @staticmethod
+    def __event_end_prices(df):
+        conditions = [
+            (df['Direction'] == 1),
+            (df['Direction'] == -1)
+        ]
+        choices = [df['Mid price|max'], df['Mid price|min']]
+        df['Event end price'] = np.select(conditions, choices)
+        return df["Event end price"]
     def get_most_recent_price(self, timestamp):
         mask = self.order_book['Transaction time'] <= timestamp
         if mask.any():
