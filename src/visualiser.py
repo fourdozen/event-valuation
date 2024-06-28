@@ -15,8 +15,8 @@ class Visualiser():
         self.utc_to_timestamp()
 
     def visualise(self):
-        # self.plot_basic_data()
-        self.plot_price_change_distribution()
+        self.plot_post_event_price_change_dist(-1,0.5)
+        self.plot_post_event_price_change_dist(1, 0.2)
 
     def utc_to_timestamp(self):
         self.order_book['Transaction UTC'] = self.__get_datetime(self.order_book)
@@ -84,6 +84,34 @@ class Visualiser():
         plt.tight_layout()
         plt.savefig('price_change_distribution.png', dpi=300)
 
+    def plot_post_event_price_change_dist(self, bin: int, delay):
+        event_size_dict = {
+            -4: "(-∞, -0.0040)",
+            -3: "[-0.0040, -0.0020)",
+            -2: "[-0.0020, -0.0010)",
+            -1: "[-0.0010, -0.0005)",
+            0: "[-0.0005, 0.0005)",
+            1: "[0.0005, 0.0010)",
+            2: "[0.0010, 0.0020)",
+            3: "[0.0020, 0.0040)",
+            4: "[0.0040, ∞)"
+        }
+        ea = EventAnalyser(self.order_book, self.public_trade)
+        ea.analyse()
+        dist = ea.get_relative_price_change_distribution(bin, delay)
+        mean = dist.mean()
+        std_dev = dist.std()
+        n = dist.count()
+        fig, ax = plt.subplots()
+        ax.hist(dist, bins=25)
+        ax.set_title(f"Distribution of relative price changes {delay * 1000} ms after event, for events of size {event_size_dict[bin]}", wrap=True)
+        ax.set_ylabel("Count")
+        ax.set_xlabel(r"Relative price change $(P_2 - P_0)/(P_1 - P_0)$")
+        plt.axvline(mean, color='r', linestyle='dashed', linewidth=1)
+        plt.axvline(mean - std_dev, color='g', linestyle='dashed', linewidth=1)
+        plt.axvline(mean + std_dev, color='g', linestyle='dashed', linewidth=1)
+        plt.tight_layout()
+        plt.savefig(f"post_event_price_change_distribution_{delay}_{bin}.png")
 
 if __name__ == '__main__':
     hdfr = HDF5Reader()
