@@ -111,27 +111,27 @@ class EventAnalyser():
         df['Event size bucket'] = np.select(conditions, values, default=0)
         return df
     
-    def get_most_recent_price(self, timestamp):
-        mask = self.order_book['Transaction time'] <= timestamp
+    @staticmethod
+    def get_most_recent_price(timestamp, order_book):
+        mask = order_book['Transaction time'] <= timestamp
         if mask.any():
-            nearest_time = self.order_book.loc[mask, 'Transaction time'].max()
-            recent_price = self.order_book.loc[self.order_book['Transaction time'] == nearest_time, 'Mid price'].values[0]
+            nearest_time = order_book.loc[mask, 'Transaction time'].max()
+            recent_price = order_book.loc[order_book['Transaction time'] == nearest_time, 'Mid price'].values[0]
             return recent_price
         else:
             raise ValueError("There is no 'Transaction time' in the DataFrame that is less than or equal to the input timestamp.")
 
-    def get_post_event_price_change(self, event_time, event_end_price, time_delay):
-        post_event_price = self.get_most_recent_price(event_time + time_delay)
-        price_change = np.subtract(post_event_price, event_end_price)
-        return price_change
+    def get_post_event_relative_price_change(self, df, time_delay):
+        post_event_timestamps = df["Event end time"] + time_delay
+        df["Post event price"] = post_event_timestamps.apply(self.get_most_recent_price, args=(self.order_book, ))
+        # (P2 - P0) / (P1 - P0)
+        df["Post event relative price change"] = (df["Post event price"] - df["Event end price"]) / (df["Event end price"] * df["Relative price change"])
+        return df["Post event relative price change"]
     
-    def get_post_event_relative_price_change(self, event_time, event_end_price, time_delay):
-        price_change = self.get_post_event_price_change(event_time, event_end_price, time_delay)
-        relative_price_change = np.divide(price_change, event_end_price)
-        return relative_price_change
-
-    def get_relative_price_change_distribution(self, event_times, event_final_prices, time_delays = (0.1, 0.2, 0.5, 1.0, 2.0)):
-        pass
+    def get_relative_price_change_distribution(self, bucket_number, time_delay):
+        subset = self.binned_data[self.binned_data["Event size bucket"] == bucket_number]
+        self.get_post_event_relative_price_change(subset, time_delay)
+        return subset["Post event relative price change"]
 
 if __name__ == "__main__":
     hdfr = HDF5Reader()
