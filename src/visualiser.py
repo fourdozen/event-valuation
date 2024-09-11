@@ -5,7 +5,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 from hdf5reader import HDF5Reader
-from event_analyser import EventAnalyser
+from event_analyser import *
 
 class Visualiser():
 
@@ -15,8 +15,7 @@ class Visualiser():
         self.utc_to_timestamp()
 
     def visualise(self):
-        self.plot_post_event_price_change_dist(-1,0.5)
-        self.plot_post_event_price_change_dist(1, 0.2)
+        pass
 
     def utc_to_timestamp(self):
         self.order_book['Transaction UTC'] = self.__get_datetime(self.order_book)
@@ -113,8 +112,62 @@ class Visualiser():
         plt.tight_layout()
         plt.savefig(f"post_event_price_change_distribution_{delay}_{bin}.png")
 
+    def plot_double_ema(self, ema_1_hl, ema_2_hl):
+        ea = DoubleEmaAnalyser(self.order_book, self.public_trade)
+        ea.get_double_ema(ema_1_hl, ema_2_hl)
+        ups_idx, downs_idx = ea.get_ema_intersection_points(self.order_book[f"EMA{ema_1_hl}"], self.order_book[f"EMA{ema_2_hl}"])
+        _, (ax_price, ax_diff) = plt.subplots(2, 1, sharex='col')
+        ax_price.plot(self.order_book["Transaction time"], self.order_book["Mid price"], label = "Mid price", color='grey')
+        ax_price.plot(self.order_book["Transaction time"], self.order_book[f"EMA{ema_1_hl}"], label = f"EMA {ema_1_hl}s")
+        ax_price.plot(self.order_book["Transaction time"], self.order_book[f"EMA{ema_2_hl}"], label = f"EMA {ema_2_hl}s")
+        ax_price.plot(self.order_book["Transaction time"][ups_idx], self.order_book[f"EMA{ema_1_hl}"][ups_idx], "go")
+        ax_price.plot(self.order_book["Transaction time"][downs_idx], self.order_book[f"EMA{ema_1_hl}"][downs_idx], "ro")
+        ax_diff.plot(self.order_book["Transaction time"], self.order_book[f"EMA{ema_1_hl}"] - self.order_book[f"EMA{ema_2_hl}"])
+        ax_diff.axhline(color = 'grey', ls = '--')
+        ax_diff.set_xlabel("Timestamp")
+        ax_diff.set_ylabel("Difference")
+        ax_price.set_ylabel("USD")
+        ax_price.legend(loc="lower right")
+        ax_diff.autoscale(axis='y')
+        ax_price.autoscale(axis='y')
+        plt.show()
+
+    def plot_ema_variance(self, halflife, alpha: float):
+        ea = EmaVarianceAnalyser(self.order_book, self.public_trade)
+        variance = ea.get_ema_variance(halflife, alpha)
+        peak_idx, var_threshold, peak_widths = ea.variance_peaks(variance)
+        fig, (ax_price, ax_var) = plt.subplots(2, 1, sharex='col')
+        ax_var.plot(self.order_book["Transaction time"], variance)
+        ax_var.set_xlabel("Timestamp")
+        ax_var.set_ylabel("EMA Variance")
+        ax_price.set_ylabel("Mid price")
+        ax_var.hlines(peak_widths[1],
+                      self.order_book["Transaction time"][peak_widths[2].astype(int)],
+                      self.order_book["Transaction time"][peak_widths[3].astype(int)],
+                      color="orange",
+                      ls = 'dashed')
+        # ax_var.axhline(var_threshold, ls = 'dashed', color = 'green', label=f'Variance threshold = {var_threshold}')
+        ax_var.plot(self.order_book["Transaction time"][peak_idx], variance[peak_idx], 'rx', label="P1")
+        ax_var.plot(self.order_book["Transaction time"][peak_widths[2].astype(int)], variance[peak_widths[2].astype(int)], 'gx', label = "P0")
+        ax_var.plot(self.order_book["Transaction time"][peak_widths[3].astype(int)], variance[peak_widths[3].astype(int)], 'bx', label = "P2")
+        ax_price.plot(self.order_book["Transaction time"], self.order_book["Mid price"], label = "Mid price", color='grey')
+        ax_price.plot(self.order_book["Transaction time"][peak_idx], self.order_book["Mid price"][peak_idx], 'rx', label = "P1")
+        ax_price.plot(self.order_book["Transaction time"][peak_widths[2].astype(int)], self.order_book["Mid price"][peak_widths[2].astype(int)],'gx', label = 'P0')
+        ax_price.plot(self.order_book["Transaction time"][peak_widths[3].astype(int)], self.order_book["Mid price"][peak_widths[3].astype(int)],'bx', label = 'P2')
+        ax_price.legend()
+        ax_var.legend()
+        fig.suptitle(f'Halflife: {halflife}, Alpha: {alpha}')
+        plt.show()
+
+    def plot_duration_size_corr(self):
+        ea=EventAnalyser(self.order_book, self.order_book)
+        
+
 if __name__ == '__main__':
     hdfr = HDF5Reader()
     obf = HDF5Reader.read_data('data/sample/order_book.h5')
     ptf = HDF5Reader.read_data('data/sample/public_trade.h5')
-    Visualiser(obf, ptf).visualise()
+    # Visualiser(obf, ptf).plot_double_ema(10, 25)
+    # Visualiser(obf, ptf).plot_ema(0.1, 0.05)
+    Visualiser(obf, ptf).plot_double_ema(0.001, 0.008)
+    

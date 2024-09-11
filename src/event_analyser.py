@@ -1,21 +1,24 @@
 import pandas as pd
 import numpy as np
 from hdf5reader import HDF5Reader
+from datetime import datetime, timedelta
+from scipy import signal
 
 class EventAnalyser():
     def __init__(self, order_book: pd.DataFrame, public_trade: pd.DataFrame):
         self.order_book = order_book
         self.public_trade = public_trade
+        self.__get_mid_price()
 
     def analyse(self):
-        self.__get_mid_price()
         self.bin_data()
         self.get_direction()
         self.__event_end_times(self.binned_data)
         self.__event_end_prices(self.binned_data)
         self.__assign_event_size_buckets(self.binned_data)
+        self.save_to_xls([0.1, 0.2, 0.5, 1.0])
         return self.binned_data
-
+        
     @staticmethod
     def __relative_price_change(df):
         df['Relative price change'] = (df['Mid price|max'] - df['Mid price|min']) / df['Mid price|mean']
@@ -28,6 +31,7 @@ class EventAnalyser():
     
     def __get_mid_price(self):
         return self.__mid_price(self.order_book)
+    
     @staticmethod
     def __rebase_time_column(df, column_name, init_time):
         # Make time series column values relative to inital time
@@ -82,6 +86,21 @@ class EventAnalyser():
         df['Event end price'] = np.select(conditions, choices)
         return df["Event end price"]
     
+    @staticmethod
+    def __event_start_times(df):
+        df["Event start time"] = df[["Max timestamp", "Min timestamp"]].min(axis=1)
+        return df["Event start time"]
+    
+    @staticmethod
+    def __event_start_prices(df):
+        conditions = [
+            (df['Direction'] == 1),
+            (df['Direction'] == -1)
+        ]
+        choices = [df['Mid price|min'], df['Mid price|max']]
+        df['Event start price'] = np.select(conditions, choices)
+        return df["Event start price"]
+    
 
     @staticmethod
     def __assign_event_size_buckets(df):
@@ -129,10 +148,71 @@ class EventAnalyser():
         return df["Post event relative price change"]
     
     def get_relative_price_change_distribution(self, bucket_number, time_delay):
-        subset = self.binned_data[self.binned_data["Event size bucket"] == bucket_number]
-        self.get_post_event_relative_price_change(subset, time_delay)
-        return subset["Post event relative price change"]
+        sized = self.binned_data[self.binned_data["Event size bucket"] == bucket_number]
+        self.get_post_event_relative_price_change(sized, time_delay)
+        return sized["Post event relative price change"]
+    
+    def select_xls_data(self, df, time_delay):
+        df["P0 Timestamp"] = self.__event_start_times(self.binned_data)
+        df["P0"] = self.__event_start_prices(df)
+        df["P1"] = self.__event_end_prices(df)
+        post_event_timestamps = df["Event end time"] + time_delay
+        df["P2"] = np.apply(self.get_most_recent_price, args=(self.order_book, ))
+        df["P2-P0/P1-P0"] = (df["P2"] - df["P0"])/(df["P1"] - df["P0"])
+        df = df[df["Event size bucket"] != 0]
+        return df[["P0 Timestamp", "P0", "P1", "P2", "P2-P0/P1-P0"]]
+    
+    def save_to_xls(self, time_delays: list):
+        with pd.ExcelWriter("output/xls/events_data.xlsx", mode='w') as writer:
+            for time_delay in time_delays:
+                df_selection = self.select_xls_data(self.binned_data, time_delay)
+                # print(df_selection.head(10))
+                df_selection.to_excel(writer, sheet_name=f"P2 at {time_delay*1000} ms", index = False)
 
+
+class DoubleEmaAnalyser(EventAnalyser):
+
+    def get_ema(self, halflife):
+        col_name = f"EMA{halflife}"
+        halflife = timedelta(seconds=halflife)
+        times = self.order_book["Transaction time"].map(datetime.fromtimestamp)
+        self.order_book[col_name] = self.order_book["Mid price"].ewm(halflife=halflife, 
+                                                                     times = times).mean()
+        return self.order_book[col_name]
+    
+    def get_double_ema(self, hl_1, hl_2):
+        self.get_ema(hl_1)
+        self.get_ema(hl_2)
+    
+    @staticmethod
+    def get_ema_intersection_points(short_ema, long_ema):
+        intersections = np.diff(np.heaviside(short_ema - long_ema, 0))
+        up_intersections = np.heaviside(intersections, 0)
+        down_intersections = np.heaviside(-intersections, 0)
+        idx_ups = np.argwhere(up_intersections).flatten()
+        idx_downs = np.argwhere(down_intersections).flatten()
+        return idx_ups, idx_downs
+    
+
+class EmaVarianceAnalyser(EventAnalyser):
+    
+    def get_ema_variance(self, halflife, alpha):
+        halflife = timedelta(seconds=halflife)
+        times = self.order_book["Transaction time"].map(datetime.fromtimestamp)
+        ema_variance = self.order_book["Mid price"].ewm(halflife=halflife,
+                                                        alpha=alpha, 
+                                                        times = times).var()
+        return ema_variance
+    
+    @staticmethod
+    def variance_peaks(variance):
+        peaks, _ = signal.find_peaks(variance)
+        min_height = variance.mean() + 2 * variance.std()
+        peaks, _ = signal.find_peaks(variance, height = min_height)
+        peak_widths = signal.peak_widths(variance, peaks, rel_height=0.99)
+        return peaks, min_height, peak_widths
+    
+    
 if __name__ == "__main__":
     hdfr = HDF5Reader()
     obf = HDF5Reader.read_data('data/sample/order_book.h5')
