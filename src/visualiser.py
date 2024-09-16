@@ -172,7 +172,6 @@ class Visualiser():
         plt.xlabel("Duration /s")
         plt.ylabel("Relative price change")
         plt.title("Scatter plot of price change and duration")
-        std_non_zero = np.std(data["Relative price change"])
         plt.show()
 
 if __name__ == '__main__':
