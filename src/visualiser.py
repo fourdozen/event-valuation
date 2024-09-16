@@ -115,14 +115,14 @@ class Visualiser():
     def plot_double_ema(self, ema_1_hl, ema_2_hl):
         ea = DoubleEmaAnalyser(self.order_book, self.public_trade)
         ea.get_double_ema(ema_1_hl, ema_2_hl)
-        ups_idx, downs_idx = ea.get_ema_intersection_points(self.order_book[f"EMA{ema_1_hl}"], self.order_book[f"EMA{ema_2_hl}"])
+        ups_idx, downs_idx = ea.get_ema_intersection_points(self.order_book["EMA Short"], self.order_book["EMA Long"])
         _, (ax_price, ax_diff) = plt.subplots(2, 1, sharex='col')
         ax_price.plot(self.order_book["Transaction time"], self.order_book["Mid price"], label = "Mid price", color='grey')
-        ax_price.plot(self.order_book["Transaction time"], self.order_book[f"EMA{ema_1_hl}"], label = f"EMA {ema_1_hl}s")
-        ax_price.plot(self.order_book["Transaction time"], self.order_book[f"EMA{ema_2_hl}"], label = f"EMA {ema_2_hl}s")
-        ax_price.plot(self.order_book["Transaction time"][ups_idx], self.order_book[f"EMA{ema_1_hl}"][ups_idx], "go")
-        ax_price.plot(self.order_book["Transaction time"][downs_idx], self.order_book[f"EMA{ema_1_hl}"][downs_idx], "ro")
-        ax_diff.plot(self.order_book["Transaction time"], self.order_book[f"EMA{ema_1_hl}"] - self.order_book[f"EMA{ema_2_hl}"])
+        ax_price.plot(self.order_book["Transaction time"], self.order_book["EMA Short"], label = f"EMA {ema_1_hl}s")
+        ax_price.plot(self.order_book["Transaction time"], self.order_book["EMA Long"], label = f"EMA {ema_2_hl}s")
+        ax_price.plot(self.order_book["Transaction time"][ups_idx], self.order_book["EMA Short"][ups_idx], "go")
+        ax_price.plot(self.order_book["Transaction time"][downs_idx], self.order_book["EMA Short"][downs_idx], "ro")
+        ax_diff.plot(self.order_book["Transaction time"], self.order_book["EMA Short"] - self.order_book["EMA Long"])
         ax_diff.axhline(color = 'grey', ls = '--')
         ax_diff.set_xlabel("Timestamp")
         ax_diff.set_ylabel("Difference")
@@ -146,7 +146,6 @@ class Visualiser():
                       self.order_book["Transaction time"][peak_widths[3].astype(int)],
                       color="orange",
                       ls = 'dashed')
-        # ax_var.axhline(var_threshold, ls = 'dashed', color = 'green', label=f'Variance threshold = {var_threshold}')
         ax_var.plot(self.order_book["Transaction time"][peak_idx], variance[peak_idx], 'rx', label="P1")
         ax_var.plot(self.order_book["Transaction time"][peak_widths[2].astype(int)], variance[peak_widths[2].astype(int)], 'gx', label = "P0")
         ax_var.plot(self.order_book["Transaction time"][peak_widths[3].astype(int)], variance[peak_widths[3].astype(int)], 'bx', label = "P2")
@@ -159,15 +158,25 @@ class Visualiser():
         fig.suptitle(f'Halflife: {halflife}, Alpha: {alpha}')
         plt.show()
 
-    def plot_duration_size_corr(self):
-        ea=EventAnalyser(self.order_book, self.order_book)
-        
+    def plot_duration_size_corr(self, hl_s, hl_l):
+        ea = DoubleEmaAnalyser(self.order_book, self.public_trade, hl_s, hl_l)
+        events = ea.get_events()
+        time_susbset = events[events["Duration"] < 1.0]
+        data = time_susbset[time_susbset["Relative price change"] != 0.0]
+        mean_rpc = np.mean(time_susbset["Relative price change"])
+        std_rpc = np.std(time_susbset["Relative price change"])
+        plt.scatter(x = "Duration", y = "Relative price change", marker = 'x', data = data)
+        plt.axhline(y = mean_rpc, color="red", ls='--')
+        plt.axhline(y = mean_rpc + 1.5 * std_rpc, color = "orange", ls='--')
+        plt.axhline(y = mean_rpc - 1.5 * std_rpc, color = "orange", ls='--')
+        plt.xlabel("Duration /s")
+        plt.ylabel("Relative price change")
+        plt.title("Scatter plot of price change and duration")
+        std_non_zero = np.std(data["Relative price change"])
+        plt.show()
 
 if __name__ == '__main__':
     hdfr = HDF5Reader()
     obf = HDF5Reader.read_data('data/sample/order_book.h5')
     ptf = HDF5Reader.read_data('data/sample/public_trade.h5')
-    # Visualiser(obf, ptf).plot_double_ema(10, 25)
-    # Visualiser(obf, ptf).plot_ema(0.1, 0.05)
-    Visualiser(obf, ptf).plot_double_ema(0.001, 0.008)
-    
+    Visualiser(obf, ptf).plot_duration_size_corr(0.001, 0.008)
