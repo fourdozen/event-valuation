@@ -166,33 +166,69 @@ class EventAnalyser():
         with pd.ExcelWriter("output/xls/events_data.xlsx", mode='w') as writer:
             for time_delay in time_delays:
                 df_selection = self.select_xls_data(self.binned_data, time_delay)
-                # print(df_selection.head(10))
                 df_selection.to_excel(writer, sheet_name=f"P2 at {time_delay*1000} ms", index = False)
 
 
 class DoubleEmaAnalyser(EventAnalyser):
+    def __init__(self, order_book, public_trade, halflife_short, halflife_long):
+        super().__init__(order_book, public_trade)
+        self.analyse_init(halflife_short, halflife_long)
 
-    def get_ema(self, halflife):
-        col_name = f"EMA{halflife}"
+    def get_ema(self, halflife: float, is_short_ema: bool):
+        col_name = "EMA Short" if is_short_ema else "EMA Long"
         halflife = timedelta(seconds=halflife)
         times = self.order_book["Transaction time"].map(datetime.fromtimestamp)
         self.order_book[col_name] = self.order_book["Mid price"].ewm(halflife=halflife, 
                                                                      times = times).mean()
         return self.order_book[col_name]
     
-    def get_double_ema(self, hl_1, hl_2):
-        self.get_ema(hl_1)
-        self.get_ema(hl_2)
+    def get_double_ema(self, hl_short, hl_long):
+        self.get_ema(hl_short, True)
+        self.get_ema(hl_long, False)
     
     @staticmethod
-    def get_ema_intersection_points(short_ema, long_ema):
+    def get_ema_intersection_points(short_ema: pd.Series, long_ema: pd.Series):
         intersections = np.diff(np.heaviside(short_ema - long_ema, 0))
         up_intersections = np.heaviside(intersections, 0)
         down_intersections = np.heaviside(-intersections, 0)
         idx_ups = np.argwhere(up_intersections).flatten()
         idx_downs = np.argwhere(down_intersections).flatten()
         return idx_ups, idx_downs
+
+    def get_events(self):
+        idx_arr = np.concatenate((self.idx_ups, self.idx_downs))
+        idx_arr.sort(kind = 'mergesort')
+        start_idx = idx_arr[:-1]
+        end_idx = idx_arr[1:]
+        start_times = self.order_book["Transaction time"][start_idx].reset_index(drop = True)
+        end_times = self.order_book["Transaction time"][end_idx].reset_index(drop = True)
+        start_prices = self.order_book["Mid price"][start_idx].reset_index(drop = True)
+        end_prices = self.order_book["Mid price"][end_idx].reset_index(drop = True)
+        self.events = pd.DataFrame({
+            "Start idx": start_idx,
+            "End idx": end_idx,
+            "Start time": start_times,
+            "End time": end_times,
+            "Start price": start_prices,
+            "End price": end_prices,
+            "Duration": end_times - start_times,
+            "Relative price change": (end_prices - start_prices)/start_prices
+        })
+        return self.events
     
+    def filter_events(self, events, max_time = 1.0, min_price_std = 1.5):
+        filter_1 = events[events["Duration"] < max_time]
+        mean = np.mean(filter_1["Relative price change"])
+        std = np.std(filter_1["Relative price change"])
+        upper_boundary = mean + std
+        lower_boundary = mean - std
+        filtered_data = filter_1[(filter_1["Relative price change"] > upper_boundary) | (filter_1["Relative price change"] < lower_boundary)]
+        return filtered_data
+
+    def analyse_init(self, hl_1, hl_2):
+        self.get_double_ema(hl_1, hl_2)
+        self.idx_ups, self.idx_downs = self.get_ema_intersection_points(self.order_book["EMA Short"], self.order_book["EMA Long"])
+
 
 class EmaVarianceAnalyser(EventAnalyser):
     
@@ -212,10 +248,10 @@ class EmaVarianceAnalyser(EventAnalyser):
         peak_widths = signal.peak_widths(variance, peaks, rel_height=0.99)
         return peaks, min_height, peak_widths
     
-    
+
 if __name__ == "__main__":
     hdfr = HDF5Reader()
     obf = HDF5Reader.read_data('data/sample/order_book.h5')
     ptf = HDF5Reader.read_data('data/sample/public_trade.h5')
-    ea = EventAnalyser(obf, ptf)
-    ea.analyse()
+    ea = DoubleEmaAnalyser(obf, ptf, 0.001, 0.008)
+    
